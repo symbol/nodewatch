@@ -6,6 +6,7 @@ import dash
 import pandas as pd
 import plotly.express as px
 from dash import dash_table, dcc, html
+from dash.dependencies import Input, Output
 
 from .NemLoader import NemLoader
 from .SymbolLoader import SymbolLoader
@@ -67,7 +68,7 @@ class WebApp:
                 percentage = value / getattr(aggregate_version_summary, measure)
                 data_vectors['percentage'].append(percentage)
 
-                data_vectors['label'].append('{:.2f}%<br>({:,.0f})'.format(percentage * 100, value))
+                data_vectors['label'].append('{:.2f}% ({:,.0f})'.format(percentage * 100, value))
 
         data_frame = pd.DataFrame(data_vectors)
         figure = px.bar(
@@ -86,23 +87,24 @@ class WebApp:
         return self._make_table(
             [descriptor for descriptor in self.symbol_loader.descriptors if descriptor.is_voting and 'NGL' not in descriptor.categories],
             ['address', 'name', 'host', 'balance', 'version', 'voting_end_epoch'],
-            SymbolLoader.version_to_tag)
+            SymbolLoader.version_to_tag,
+            'symbol-table')
 
     def make_nem_table(self):
         return self._make_table(
             [descriptor for descriptor in self.nem_loader.descriptors if descriptor.version],
             ['main_address', 'name', 'host', 'balance', 'version'],
-            NemLoader.version_to_tag)
+            NemLoader.version_to_tag,
+            'nem-table')
 
     @staticmethod
-    def _make_table(descriptors, column_names, version_to_tag):
-        return dash_table.DataTable(
-            data=[
-                {
-                    'tag': version_to_tag(descriptor.version),
-                    **{name: str(getattr(descriptor, name)) for name in column_names}
-                } for descriptor in descriptors
-            ],
+    def _make_table(descriptors, column_names, version_to_tag, id):
+        table = dash_table.DataTable(
+            id=id,
+            data=[{
+                'tag': version_to_tag(descriptor.version),
+                **{name: str(getattr(descriptor, name)) for name in column_names}
+            } for descriptor in descriptors],
             columns=[{'id': name, 'name': name} for name in column_names],
             style_data_conditional=[
                 {
@@ -114,6 +116,8 @@ class WebApp:
                     'backgroundColor': COLORS.failure
                 },
             ])
+
+        return table
 
     def layout(self):
         self.app.layout = html.Div(children=[
@@ -128,8 +132,31 @@ class WebApp:
             self.make_symbol_table(),
 
             html.H1(children='Harlock Hardfork Table'),
-            self.make_nem_table()
+            self.make_nem_table(),
+
+            dcc.Interval(
+                id='load-interval',
+                interval=60000, # in milliseconds
+                n_intervals=0
+            )
         ])
+
+        def update_graphs(n):
+            self.reload()
+            symbol_figure = self.make_symbol_figure()
+            symbol_allnodes_figure = self.make_symbol_allnodes_figure()
+            nem_figure = self.make_nem_figure()
+            symbol_table = self.make_symbol_table()
+            nem_table = self.make_nem_table()
+            return symbol_figure, symbol_allnodes_figure, nem_figure, symbol_table.data, nem_table.data
+
+        self.app.callback([
+            Output('cyprus-graph','figure'),
+            Output('cyprus-allnodes-graph','figure'),
+            Output('harlock-graph','figure'),
+            Output('symbol-table','data'),
+            Output('nem-table','data'),
+            Input('load-interval','n_intervals')])(update_graphs)
 
     def run(self):
         self.app.run_server(debug=True)
