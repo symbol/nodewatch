@@ -211,7 +211,7 @@ class WebApp:
             mtime = os.path.getmtime(self.resources_path / 'nem_harvesters.csv')
             if mtime > self.mtime:
                 self.mtime = mtime
-                print(f'Updating at check {n_intervals}, modified time: {mtime}')
+                log.debug(f'Updating at check {n_intervals}, modified time: {mtime}')
                 self.reload()
 
                 return (
