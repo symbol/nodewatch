@@ -7,7 +7,7 @@ echo "[$(date)] crawling Symbol network"
 python3 -m network.nodes \
 	--resources ./networks/symbol.yaml \
 	--thread-count 64 \
-	--certs ./cert \
+	--certs ./certs \
 	--output "$1/symbol_nodes.json" \
 	--timeout "$2"
 

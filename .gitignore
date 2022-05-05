@@ -11,3 +11,5 @@ working/
 build/
 dist/
 *.egg-info/
+certs/
+results/
